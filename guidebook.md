@@ -933,48 +933,50 @@ than formatting issues.
 * Install the pre-commit hook `utils/githooks/pre-commit` to format the source code automatically
   on commit (this is done automatically by `tmbuild`).
 
-!!! note: Note
-    The most annoying thing about `clang-format` is that it left-flushes `#if` statements
-    rather than indenting them. This makes the code harder to read — especially when there are
-    multiple nested statements. We should consider patching `clang-format` to fix this in the future.
+:::{.note}
+Note:
+The most annoying thing about `clang-format` is that it left-flushes `#if` statements
+rather than indenting them. This makes the code harder to read — especially when there are
+multiple nested statements. We should consider patching `clang-format` to fix this in the future.
 
-    I.e. instead of this:
+I.e. instead of this:
 
-    ~~~c dont
-    #if defined(TM_OS_WINDOWS)
+~~~c dont
+#if defined(TM_OS_WINDOWS)
+#define DIRSEP "\\"
+#else
+#define DIRSEP "/"
+#endif
+
+static void log_output_debug_string(struct tm_logger_o *inst,
+    enum tm_log_type log_type, const char *msg)
+{
+#if defined(TM_OS_WINDOWS)
+    void OutputDebugStringA(const char *s);
+    OutputDebugStringA(msg);
+#endif
+}
+~~~
+
+We want this:
+
+~~~c
+#if defined(TM_OS_WINDOWS)
     #define DIRSEP "\\"
-    #else
+#else
     #define DIRSEP "/"
-    #endif
+#endif
 
-    static void log_output_debug_string(struct tm_logger_o *inst,
-        enum tm_log_type log_type, const char *msg)
-    {
+static void log_output_debug_string(struct tm_logger_o *inst,
+    enum tm_log_type log_type, const char *msg)
+{
     #if defined(TM_OS_WINDOWS)
         void OutputDebugStringA(const char *s);
         OutputDebugStringA(msg);
     #endif
-    }
-    ~~~
-
-    We want this:
-
-    ~~~c
-    #if defined(TM_OS_WINDOWS)
-        #define DIRSEP "\\"
-    #else
-        #define DIRSEP "/"
-    #endif
-
-    static void log_output_debug_string(struct tm_logger_o *inst,
-        enum tm_log_type log_type, const char *msg)
-    {
-        #if defined(TM_OS_WINDOWS)
-            void OutputDebugStringA(const char *s);
-            OutputDebugStringA(msg);
-        #endif
-    }
-    ~~~
+}
+~~~
+:::
 
 Tips if you find yourself fighting with `clang-format`:
 
@@ -1031,13 +1033,15 @@ Make use of editor features to line break the documentation at 100 characters. F
 *Visual Studio Code*, set *Word Wrap Column* to 100, install the *Rewrap* extension and press
 *Alt-Q* to wrap a paragraph.
 
-!!! note: Note
-    We belive that the *right* way to handle long code lines is for the *editor* to word wrap
-    automatically *with intelligent indentation*. I.e., when you enable word wrap in the editor, the
-    indentation should look similar to what you would get with hand-inserted line breaks.
+:::{.note}
+Note
+We belive that the *right* way to handle long code lines is for the *editor* to word wrap
+automatically *with intelligent indentation*. I.e., when you enable word wrap in the editor, the
+indentation should look similar to what you would get with hand-inserted line breaks.
 
-    This way, each user can use the editor width that they prefer, and the code will look good
-    everywhere. Unfortunately, editors are still pretty bad at doing this.
+This way, each user can use the editor width that they prefer, and the code will look good
+everywhere. Unfortunately, editors are still pretty bad at doing this.
+:::
 
 ## OMG-STYLE-7: Unexposed functions and variables should be declared `static`
 
@@ -1209,40 +1213,43 @@ static parts:
 sprintf(msg, TM_LOCALIZE("Thanks %s!"), name);
 ~~~
 
-!!! Tip: Localization tips
-    * Be wary of concatenating strings out of too many individual parts. Word order might differ between
-      languages and the way you put the string together might not make sense. E.g.:
+:::{.tip}
+Tip: Localization tips
 
-        ~~~c dont
-        // Not ideal: This locks down the sentence structure and depends on
-        // "great" and "good" being  translated the same way in this sentence
-        // as in all other possible sentences.
-        sprintf(msg, TM_LOCALIZE("Thanks %s, you did %s!"), name,
-            score > 100 ? TM_LOCALIZE("great") : TM_LOCALIZE("good"));
-        ~~~
+* Be wary of concatenating strings out of too many individual parts. Word order might differ between
+  languages and the way you put the string together might not make sense. E.g.:
 
-        Better:
+~~~c dont
+// Not ideal: This locks down the sentence structure and depends on
+// "great" and "good" being  translated the same way in this sentence
+// as in all other possible sentences.
+sprintf(msg, TM_LOCALIZE("Thanks %s, you did %s!"), name,
+    score > 100 ? TM_LOCALIZE("great") : TM_LOCALIZE("good"));
+~~~
 
-        ~~~c
-        sprintf(msg, score > 100 ? TM_LOCALIZE("Thanks %s, you did great!") :
-            TM_LOCALIZE("Thanks %s, you did good!", name));
-        ~~~
+Better:
 
-    * Make sure to clearly mark in your APIs which function return localized vs non-localized strings.
-      E.g., if you just see a function:
+~~~c
+sprintf(msg, score > 100 ? TM_LOCALIZE("Thanks %s, you did great!") :
+    TM_LOCALIZE("Thanks %s, you did good!", name));
+~~~
 
-        ~~~c
-        const char *name();
-        ~~~
+* Make sure to clearly mark in your APIs which function return localized vs non-localized strings.
+  E.g., if you just see a function:
 
-        it is hard to know if it returns a localized name (suitable for displaying the UI), or a
-        non-localized string for internal use. In some cases, you might need two separate functions for
-        the two different purposes:
+~~~c
+const char *name();
+~~~
 
-        ~~~c
-        const char *name();
-        const char *display_name();
-        ~~~
+it is hard to know if it returns a localized name (suitable for displaying the UI), or a
+non-localized string for internal use. In some cases, you might need two separate functions for
+the two different purposes:
+
+~~~c
+const char *name();
+const char *display_name();
+~~~
+:::
 
 ## OMG-STYLE-18: All variables that are not modified should be declared `const`
 
